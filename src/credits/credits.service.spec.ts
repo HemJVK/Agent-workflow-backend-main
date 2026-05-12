@@ -12,10 +12,10 @@ describe('CreditsService', () => {
   let userRepository: any;
   let transactionRepository: any;
 
-  const mockUser = {
+  const fakeUser = {
     id: 'user-1',
     credits: 100,
-    save: jest.fn(),
+    save: async () => fakeUser,
   };
 
   beforeEach(async () => {
@@ -25,28 +25,30 @@ describe('CreditsService', () => {
         {
           provide: getRepositoryToken(User),
           useValue: {
-            findOne: jest.fn().mockResolvedValue(mockUser),
-            save: jest.fn().mockResolvedValue(mockUser),
-            update: jest.fn().mockResolvedValue({}),
+            updateCalled: false,
+            findOne: async () => fakeUser,
+            save: async () => fakeUser,
+            update: async function() { this.updateCalled = true; return {}; },
           },
         },
         {
           provide: getRepositoryToken(CreditTransaction),
           useValue: {
-            create: jest.fn().mockReturnValue({}),
-            save: jest.fn().mockResolvedValue({}),
+            saveCalled: false,
+            create: () => ({}),
+            save: async function() { this.saveCalled = true; return {}; },
           },
         },
         {
           provide: OtpService,
           useValue: {
-            sendSms: jest.fn().mockResolvedValue({}),
+            sendSms: async () => ({}),
           },
         },
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockReturnValue('dummy'),
+            get: () => 'dummy',
           },
         },
       ],
@@ -63,27 +65,27 @@ describe('CreditsService', () => {
 
   describe('deduct', () => {
     it('should deduct credits if balance is sufficient', async () => {
-      mockUser.credits = 100;
+      fakeUser.credits = 100;
       const remaining = await service.deduct('user-1', 'HELPER_CHAT');
       
       expect(remaining).toBe(99);
-      expect(userRepository.update).toHaveBeenCalled();
-      expect(transactionRepository.save).toHaveBeenCalled();
+      expect(userRepository.updateCalled).toBe(true);
+      expect(transactionRepository.saveCalled).toBe(true);
     });
 
     it('should throw BadRequestException if balance is insufficient', async () => {
-      mockUser.credits = 0;
+      fakeUser.credits = 0;
       await expect(service.deduct('user-1', 'HELPER_CHAT')).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('topUp', () => {
     it('should increase user credits', async () => {
-      mockUser.credits = 100;
+      fakeUser.credits = 100;
       const updated = await service.topUp('user-1', 50);
       
       expect(updated).toBe(150);
-      expect(userRepository.update).toHaveBeenCalled();
+      expect(userRepository.updateCalled).toBe(true);
     });
   });
 });

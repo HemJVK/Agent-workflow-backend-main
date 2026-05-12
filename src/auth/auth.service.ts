@@ -18,9 +18,7 @@ import { ComposioService } from '../composio/composio.service';
 
 @Injectable()
 export class AuthService {
-  private googleClient = new OAuth2Client(
-    '93727091909-pc7n4v5sefspk8j3qq38f4fsmo1ki2lk.apps.googleusercontent.com',
-  );
+  private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   private readonly STARTER_CREDITS = 50;
 
   constructor(
@@ -257,8 +255,7 @@ export class AuthService {
     try {
       const ticket = await this.googleClient.verifyIdToken({
         idToken: token,
-        audience:
-          '93727091909-pc7n4v5sefspk8j3qq38f4fsmo1ki2lk.apps.googleusercontent.com',
+        audience: process.env.GOOGLE_CLIENT_ID,
       });
       const payload = ticket.getPayload();
       if (!payload || !payload.sub || !payload.email) {
@@ -311,7 +308,10 @@ export class AuthService {
   }
 
   async bootstrapAdmin(userId: string, passkey: string) {
-    const secretKey = process.env.SUPER_ADMIN_PASSKEY || 'admin_secret_123';
+    const secretKey = process.env.SUPER_ADMIN_PASSKEY;
+    if (!secretKey) {
+      throw new BadRequestException('Super admin passkey is not configured in the environment');
+    }
     if (passkey !== secretKey) {
       throw new UnauthorizedException('Invalid super admin passkey');
     }

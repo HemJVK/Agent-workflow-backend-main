@@ -8,11 +8,7 @@ export const validationSchema = Joi.object({
     .default('development'),
 
   // Auth
-  JWT_SECRET: Joi.string().when('NODE_ENV', {
-    is: 'production',
-    then: Joi.string().min(24).required(),
-    otherwise: Joi.string().default('fallback_secret_key_123'),
-  }),
+  JWT_SECRET: Joi.string().required(),
 
   // AI Providers
   OPENROUTER_API_KEY: Joi.string().when('NODE_ENV', {

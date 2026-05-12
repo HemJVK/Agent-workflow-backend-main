@@ -17,6 +17,7 @@ import * as path from 'path';
 import { WorkflowsService } from './workflows.service';
 import { DeployWorkflowDto } from './dto/deploy-workflow.dto';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
+import { UpdateDraftDto } from './dto/update-draft.dto';
 import { AuthGuard } from '../auth/auth.guard';
 
 @UseGuards(AuthGuard)
@@ -121,13 +122,13 @@ export class WorkflowsController {
   @Patch(':id')
   async updateDraft(
     @Param('id') id: string,
-    @Body() body: { nodes: any[]; edges: any[] },
+    @Body() updateDraftDto: UpdateDraftDto,
     @Request() req: any,
   ) {
     return await this.workflowsService.updateDraft(
       id,
-      body.nodes,
-      body.edges,
+      updateDraftDto.nodes || [],
+      updateDraftDto.edges || [],
       req.user.sub,
     );
   }
@@ -145,9 +146,10 @@ export class WorkflowsController {
         deployWorkflowDto,
         req.user.sub,
       );
-    } catch (e) {
+    } catch (e: any) {
       if (e instanceof NotFoundException) throw e;
-      throw new BadRequestException('Validation Error');
+      console.error('[Deploy Error]', e.message || e);
+      throw new BadRequestException(e.message || 'Validation Error');
     }
   }
 

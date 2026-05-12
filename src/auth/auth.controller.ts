@@ -8,6 +8,7 @@ import {
   Request,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { AuthGuard } from './auth.guard';
@@ -21,6 +22,7 @@ export class AuthController {
     private composioService: ComposioService,
   ) {}
 
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   async login(@Body() body: any) {
     if (!body.email || !body.password) {
