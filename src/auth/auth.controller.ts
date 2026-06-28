@@ -7,7 +7,10 @@ import {
   UseGuards,
   Request,
   BadRequestException,
+  Query,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -51,6 +54,103 @@ export class AuthController {
       throw new UnauthorizedException('UserId and code are required');
     }
     return this.authService.verifyOtp(body.userId, body.code);
+  }
+
+  @Get('verify-link')
+  async verifyLink(
+    @Query('userId') userId: string,
+    @Query('code') code: string,
+    @Res() res: any,
+  ) {
+    if (!userId || !code) {
+      throw new BadRequestException('UserId and code are required');
+    }
+    try {
+      await this.authService.verifyOtp(userId, code, true);
+      res.setHeader('Content-Type', 'text/html');
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Email Verified</title>
+            <style>
+              body {
+                background-color: #000;
+                color: #fff;
+                font-family: system-ui, -apple-system, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+              }
+              .card {
+                background: rgba(255,255,255,0.05);
+                border: 1px solid rgba(255,255,255,0.1);
+                padding: 2.5rem;
+                border-radius: 1.5rem;
+                text-align: center;
+                max-width: 400px;
+              }
+              h1 { color: #3b82f6; margin-bottom: 0.5rem; }
+              p { color: #9ca3af; font-size: 0.95rem; line-height: 1.5; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>Email Verified!</h1>
+              <p>Your email has been successfully verified. You can now return to your original browser tab to complete your setup.</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (err: any) {
+      res.setHeader('Content-Type', 'text/html');
+      res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Verification Failed</title>
+            <style>
+              body {
+                background-color: #000;
+                color: #fff;
+                font-family: system-ui, -apple-system, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+              }
+              .card {
+                background: rgba(255,255,255,0.05);
+                border: 1px solid rgba(255,255,255,0.1);
+                padding: 2.5rem;
+                border-radius: 1.5rem;
+                text-align: center;
+                max-width: 400px;
+              }
+              h1 { color: #f87171; margin-bottom: 0.5rem; }
+              p { color: #9ca3af; font-size: 0.95rem; line-height: 1.5; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>Verification Failed</h1>
+              <p>${err.message || 'The verification link is invalid or has expired.'}</p>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+  }
+
+  @Get('verify-status')
+  async verifyStatus(@Query('userId') userId: string) {
+    if (!userId) {
+      throw new BadRequestException('UserId is required');
+    }
+    return this.authService.getVerificationStatus(userId);
   }
 
   @Post('google')

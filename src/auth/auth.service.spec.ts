@@ -221,6 +221,29 @@ describe('AuthService', () => {
       expect(result.access_token).toBeDefined();
       /* updated implicitly */
     });
+
+    it('should save session when saveSession is true', async () => {
+      usersService.findById = async () => ({
+        ...fakeUser,
+        otp_code: '123456',
+        otp_expires_at: new Date(Date.now() + 60000), // valid
+      } as any);
+
+      // Verify status should initially be verified: false
+      let status = service.getVerificationStatus('user-uuid-1');
+      expect(status.verified).toBe(false);
+
+      // Verify OTP and request saving the session
+      await service.verifyOtp('user-uuid-1', '123456', true);
+
+      // Verify status should now be verified: true
+      status = service.getVerificationStatus('user-uuid-1');
+      expect(status.verified).toBe(true);
+
+      // Second check should be verified: false (deleted from map)
+      status = service.getVerificationStatus('user-uuid-1');
+      expect(status.verified).toBe(false);
+    });
   });
 
   // ── bootstrapAdmin ────────────────────────────────────────────────────
@@ -249,6 +272,11 @@ describe('AuthService', () => {
     it('setupTotp should throw for non-existent user', async () => {
       usersService.findByEmail = async () => null;
       await expect(service.setupTotp('nobody@example.com')).rejects.toThrow(BadRequestException);
+    });
+
+    it('setupTotp should throw if TOTP is already enabled', async () => {
+      usersService.findByEmail = async () => ({ ...fakeUser, is_totp_enabled: true } as any);
+      await expect(service.setupTotp('test@example.com')).rejects.toThrow(BadRequestException);
     });
 
     it('verifyTotpSetup should throw for invalid code', async () => {

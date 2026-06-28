@@ -20,6 +20,7 @@ import { ComposioService } from '../composio/composio.service';
 export class AuthService {
   private googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   private readonly STARTER_CREDITS = 50;
+  private verifiedSessions = new Map<string, { access_token: string; user: any }>();
 
   constructor(
     private usersService: UsersService,
@@ -169,13 +170,13 @@ export class AuthService {
     if (data.phone_number) {
       await this.otpService.sendOtp(data.phone_number, otp, 'phone');
     } else if (data.email) {
-      await this.otpService.sendOtp(data.email, otp, 'email');
+      await this.otpService.sendOtp(data.email, otp, 'email', newUser.id);
     }
 
     return { message: 'OTP sent for verification', userId: newUser.id };
   }
 
-  async verifyOtp(userId: string, code: string) {
+  async verifyOtp(userId: string, code: string, saveSession = false) {
     const user = await this.usersService.findById(userId);
     if (!user) throw new BadRequestException('User not found');
     if (!user.otp_code || user.otp_code !== code) {
@@ -214,7 +215,11 @@ export class AuthService {
     }
 
     const updatedUser = (await this.usersService.findById(user.id)) as User;
-    return this.login(updatedUser);
+    const session = await this.login(updatedUser);
+    if (saveSession) {
+      this.verifiedSessions.set(userId, session);
+    }
+    return session;
   }
 
   async resendOtp(userId: string) {
@@ -231,10 +236,19 @@ export class AuthService {
     if (user.phone_number) {
       await this.otpService.sendOtp(user.phone_number, otp, 'phone');
     } else if (user.email) {
-      await this.otpService.sendOtp(user.email, otp, 'email');
+      await this.otpService.sendOtp(user.email, otp, 'email', user.id);
     }
 
     return { message: 'OTP resent successfully' };
+  }
+
+  getVerificationStatus(userId: string) {
+    const session = this.verifiedSessions.get(userId);
+    if (session) {
+      this.verifiedSessions.delete(userId);
+      return { verified: true, ...session };
+    }
+    return { verified: false };
   }
 
   async markTutorialSeen(userId: string) {
@@ -326,6 +340,10 @@ export class AuthService {
   async setupTotp(email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) throw new BadRequestException('User not found');
+
+    if (user.is_totp_enabled) {
+      throw new BadRequestException('Authenticator is already set up for this email');
+    }
 
     const { secret, qrCodeUrl } = await this.totpService.generateSecret(email);
     await this.usersService.update(user.id, { totp_secret: secret });
